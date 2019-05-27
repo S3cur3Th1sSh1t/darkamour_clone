@@ -7,7 +7,7 @@ finalexename=$4
 
 if [ $# != 4 ]; then
   echo -e "Usage:\n"
-  echo -e "$0 <type> <executable> <filename> <exeneame>\n"
+  echo -e "$0 <type> <executable> <filename> <exename>\n"
   echo -e "type    \t- [exe] or [source] code"
   echo -e "executable\t- locating of source code, must be single file"
   echo -e "filename\t- filename of compiled source code"
