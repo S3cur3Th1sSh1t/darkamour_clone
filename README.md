@@ -4,7 +4,7 @@ Store and execute an encrypted windows binary from inside memory, without a sing
 
 ## Usage
 
-`Windows crypter by Dylan Halls (v0.1)
+```Windows crypter by Dylan Halls (v0.1)
 
 usage: crypter.py [-h] [-u] [-b] [-s] [-r] [-k KEY] [-o OUTFILE] file
 
@@ -21,4 +21,4 @@ optional arguments:
                         supplied
   -o OUTFILE, --outfile OUTFILE
                         name of outfile, if not provided then random filename
-                        is assigned`
+                        is assigned```
