@@ -22,3 +22,5 @@ optional arguments:
   -o OUTFILE, --outfile OUTFILE
                         name of outfile, if not provided then random filename
                         is assigned```
+
+## Example
