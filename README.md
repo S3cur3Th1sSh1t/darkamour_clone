@@ -7,7 +7,7 @@ Store and execute an encrypted windows binary from inside memory, without a sing
 ```
 Windows crypter by Dylan Halls (v0.1)
 
-usage: crypter.py [-h] [-u] [-b] [-s] [-r] [-k KEY] [-o OUTFILE] file
+usage: crypter.py [-h] [-u] [-b] [-d] [-s] [-r] [-k KEY] [-o OUTFILE] file
 
 positional arguments:
   file                  file to crypt, assumed as binary if not told otherwise
@@ -16,6 +16,8 @@ optional arguments:
   -h, --help            show this help message and exit
   -u, --upx             upx file before crypting
   -b, --binary          provide if file is a binary exe
+  -d, --dll             use reflective dll injection to execute the binary
+                        inside another process
   -s, --source          provide if the file is c source code
   -r, --raw             store binary in memory without encrypting
   -k KEY, --key KEY     key to encrypt with, randomly generated if not
@@ -27,10 +29,13 @@ optional arguments:
 
 ## Example
 
-`./crypter.py example.exe -o crypted_example.exe`
+`./crypter.py meterpreter.exe -o meta.exe`
+
+## Bypass Windows Defender
+
+`./crypter.py -u meterpreter.exe -o meta.exe`
 
 ## TODO
 
   - Add support for flags s,r,k
-  - DLL injection option to take over remote process
   - Load pe image over a socket so not stored inside the binary
