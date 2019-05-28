@@ -31,6 +31,6 @@ optional arguments:
 
 ## TODO
 
-  - Add support for flags u,s,r,k
+  - Add support for flags s,r,k
   - DLL injection option to take over remote process
   - Load pe image over a socket so not stored inside the binary

@@ -141,10 +141,7 @@ if __name__ == '__main__':
     else:
         gen_rand_key()
 
-    if args['raw'] is not None:
-        BINASRAW = True
-
-    if args['upx'] is not None:
-        UPXPACK = True
+    if args['raw'] is not False: BINASRAW = True
+    if args['upx'] is not False: UPXPACK = True
 
     crypt(args['file'])
