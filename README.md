@@ -5,9 +5,9 @@ Store and execute an encrypted windows binary from inside memory, without a sing
 ## Usage
 
 ```
-Windows crypter by Dylan Halls (v0.1)
+DarkArmour (v0.1) by Dylan Halls
 
-usage: crypter.py [-h] [-u] [-b] [-d] [-s] [-r] [-k KEY] [-o OUTFILE] file
+usage: darkarmour.py [-h] [-u] [-b] [-d] [-s] [-r] [-k KEY] [-o OUTFILE] file
 
 positional arguments:
   file                  file to crypt, assumed as binary if not told otherwise
