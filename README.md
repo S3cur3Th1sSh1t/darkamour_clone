@@ -37,5 +37,6 @@ optional arguments:
 
 ## TODO
 
+  - Intergrate into PowerUp
   - Add support for flags s,r,k
   - Load pe image over a socket so not stored inside the binary
