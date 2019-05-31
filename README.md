@@ -29,14 +29,17 @@ optional arguments:
 
 ## Example
 
-`./crypter.py meterpreter.exe -o meta.exe`
+`	./crypter.py meterpreter.exe -o meta.exe`
 
 ## Bypass Windows Defender
 
-`./crypter.py -u meterpreter.exe -o meta.exe`
+	### With a windows pe binary
+
+`	./crypter.py -u meterpreter.exe -o meta.exe`
 
 ## TODO
 
   - Intergrate into PowerUp
   - Add support for flags s,r,k
+  - Run shellcode option, use dll inject to do it in diffrent process
   - Load pe image over a socket so not stored inside the binary
