@@ -33,7 +33,7 @@ optional arguments:
 
 ## Bypass Windows Defender
 
-### With a windows pe binary
+	-	### With a windows pe binary
 
 `	./crypter.py -u meterpreter.exe -o meta.exe`
 
