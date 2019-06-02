@@ -38,9 +38,17 @@ optional arguments:
 
       ./darkarmour.py -S meterpreter.bin -o meter.exe
 
+## Installation
+
+It uses the python stdlib so no need to worry about any python dependencies, so the only issue you could come accoss are binary dependencies. The required binarys are; i686-w64-mingw32-g++ i686-w64-mingw32-gcc and upx (probly osslsigncode soon as well)
+These can all be installed via apt.
+
+```
+sudo apt install mingw-w64-tools upx-ucl osslsigncode
+```
+
 ## TODO
 
   - Intergrate into PowerUp
-  - Add support for flags s,r,k
-  - Run shellcode option, use dll inject to do it in diffrent process
+  - Optional signing of binarys
   - Load pe image over a socket so not stored inside the binary
