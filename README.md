@@ -5,16 +5,17 @@ Store and execute an encrypted windows binary from inside memory, without a sing
 ## Usage
 
 ```
-DarkArmour (v0.1) by Dylan Halls
+DarkArmour by Dylan Halls (v0.2)
 
-usage: darkarmour.py [-h] [-u] [-b] [-d] [-s] [-r] [-k KEY] [-o OUTFILE] file
-
-positional arguments:
-  file                  file to crypt, assumed as binary if not told otherwise
+usage: darkarmour.py [-h] [-f FILE] [-S SHELLCODE] [-b] [-d] [-s] [-r]
+                     [-k KEY] [-o OUTFILE]
 
 optional arguments:
   -h, --help            show this help message and exit
-  -u, --upx             upx file before crypting
+  -f FILE, --file FILE  file to crypt, assumed as binary if not told otherwise
+  -S SHELLCODE, --shellcode SHELLCODE
+                        file contating the shellcode, needs to be in the
+                        'msfvenom -f raw' style format
   -b, --binary          provide if file is a binary exe
   -d, --dll             use reflective dll injection to execute the binary
                         inside another process
@@ -27,15 +28,15 @@ optional arguments:
                         is assigned
 ```
 
-## Example
+## Usage
 
-`	./crypter.py meterpreter.exe -o meta.exe`
+- Generate and undetectable version of a pe executable using multiple layers of encryption
 
-## Bypass Windows Defender
+        ./darkarmour meterpreter.exe -o meter.exe
 
-- windows pe binary
+- Execute shellcode (x86/64) inside memory without detection, just provide the raw shellcode
 
-`	./crypter.py -u meterpreter.exe -o meta.exe`
+        ./darkarmour -S meterpreter.bin -o meter.exe
 
 ## TODO
 
