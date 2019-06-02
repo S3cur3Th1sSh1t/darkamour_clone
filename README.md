@@ -40,7 +40,7 @@ optional arguments:
 
 ## Installation
 
-It uses the python stdlib so no need to worry about any python dependencies, so the only issue you could come accoss are binary dependencies. The required binarys are; i686-w64-mingw32-g++ i686-w64-mingw32-gcc and upx (probly osslsigncode soon as well)
+It uses the python stdlib so no need to worry about any python dependencies, so the only issue you could come accoss are binary dependencies. The required binarys are: i686-w64-mingw32-g++, i686-w64-mingw32-gcc and upx (probly osslsigncode soon as well).
 These can all be installed via apt.
 
 ```
