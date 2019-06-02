@@ -32,11 +32,11 @@ optional arguments:
 
 - Generate and undetectable version of a pe executable using multiple layers of encryption
 
-      ./darkarmour meterpreter.exe -o meter.exe
+      ./darkarmour.py meterpreter.exe -o meter.exe
 
 - Execute shellcode (x86/64) inside memory without detection, just provide the raw shellcode
 
-      ./darkarmour -S meterpreter.bin -o meter.exe
+      ./darkarmour.py -S meterpreter.bin -o meter.exe
 
 ## TODO
 
