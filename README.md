@@ -30,7 +30,7 @@ optional arguments:
 
 ## Usage
 
-- Generate and undetectable version of a pe executable using multiple layers of encryption
+- Generate an undetectable version of a pe executable using multiple layers of encryption
 
       ./darkarmour.py meterpreter.exe -o meter.exe
 
@@ -44,7 +44,7 @@ It uses the python stdlib so no need to worry about any python dependencies, so 
 These can all be installed via apt.
 
 ```
-sudo apt install mingw-w64-tools upx-ucl osslsigncode
+sudo apt install mingw-w64-tools mingw-w64-common g++-mingw-w64 gcc-mingw-w64 upx-ucl osslsigncode
 ```
 
 ## TODO
