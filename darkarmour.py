@@ -248,7 +248,7 @@ if __name__ == '__main__':
     ap.add_argument("-s", "--source", required=False, action='store_true', help="provide if the file is c source code")
     ap.add_argument("-r", "--raw", required=False, action='store_true', help="store binary in memory without encrypting")
     ap.add_argument("-k", "--key", required=False, help="key to encrypt with, randomly generated if not supplied")
-    ap.add_argument("-o", "--outfile", required=False, help="name of outfile, if not provided then random filename is assigned")
+    ap.add_argument("-o", "--outfile", required=True, help="name of outfile, if not provided then random filename is assigned")
 
     args = vars(ap.parse_args())
 
