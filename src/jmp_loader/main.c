@@ -141,6 +141,9 @@ int main() {
   LPVOID oep = (LPVOID)(nt_header->OptionalHeader.AddressOfEntryPoint + (UINT_PTR)image_base);
 
   printf("[+] jumping to %p (%x)\n", &oep, &oep);
+
+  Sleep(5);
+
   ((void(*)())(oep))();
   //__asm (
   //  "jmp %rip"
