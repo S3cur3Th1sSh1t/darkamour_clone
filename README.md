@@ -1,3 +1,9 @@
+# Original Repo here:
+https://git.dylan.codes/batman/darkarmour
+
+# Blogpost:
+https://blog.dylan.codes/bypassing-av-via/
+
 # Windows AV Evasion Tool
 
 Store and execute an encrypted windows binary from inside memory, without a single bit touching disk.
